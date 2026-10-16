@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f4f0">
+  <meta name="description" content="Find salons that suit you. Search locally, filter thoughtfully, compare options and create a useful enquiry brief.">
+  <title>Salon Finder — Find your kind of salon</title>
+  <link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to results</a>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Salon Finder home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" width="29" height="29"><path d="M4 26C9 11 23 5 28 26" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><circle cx="16" cy="9" r="3" fill="currentColor"/></svg></span><span>salon<span class="brand-light">finder</span><span class="brand-period">.</span></span></a>
+      <nav class="nav" aria-label="Primary navigation">
+        <button class="nav-btn active" type="button" data-tab="discover" aria-current="page">Discover</button>
+        <button class="nav-btn" type="button" data-tab="saved">Saved <span class="nav-count" id="saved-count">0</span></button>
+        <button class="nav-btn compare-nav" type="button" data-action="compare">Compare <span class="nav-count" id="compare-count">0</span></button>
+      </nav>
+      <button class="brief-top" type="button" data-action="brief"><span aria-hidden="true">✦</span> Create a style brief</button>
+    </header>
+
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> A better way to find your next favourite</p>
+        <h1 id="hero-title">Your next great hair day <em>starts here.</em></h1>
+        <p class="hero-sub">Explore local hair, beauty and wellness studios. Find the right fit, compare the details, and feel good about your choice.</p>
+        <div class="trust-pills"><span>✳ Thoughtful filters</span><span>♡ Save your favourites</span><span>↗ Contact directly</span></div>
+      </div>
+      <div class="hero-art" aria-hidden="true"><span class="orb orb-one"></span><span class="orb orb-two"></span><div class="art-card art-card-one"><span class="tiny-dot"></span><span>Good hair. Good energy.</span></div><div class="art-center"><span>✳</span></div><div class="art-card art-card-two">Your perfect match <span>↗</span></div><div class="art-lines"></div></div>
+    </section>
+
+    <main id="main">
+      <section class="search-panel" aria-label="Search for salons">
+        <form id="search-form" novalidate>
+          <div class="search-main">
+            <div class="search-field location-field"><label for="location">Where are you looking?</label><div class="location-input-row"><span class="input-icon" aria-hidden="true">⌖</span><input id="location" name="location" value="London, United Kingdom" maxlength="120" autocomplete="address-level2" placeholder="Town, city or postcode" required><button class="near-me" type="button" data-action="near-me" title="Use my location" aria-label="Use my current location">◎ <span>Near me</span></button></div></div>
+            <div class="search-field radius-field"><label for="radius">Within</label><select name="radius" id="radius"><option value="1">1 km</option><option value="3">3 km</option><option value="5" selected>5 km</option><option value="10">10 km</option><option value="20">20 km</option><option value="30">30 km</option></select></div>
+            <button class="search-button" type="submit"><span aria-hidden="true">⌕</span> Find salons</button>
+          </div>
+          <fieldset class="category-fieldset"><legend>I'm looking for</legend><div class="categories" id="categories"><label class="category-chip"><input type="radio" name="category" value="all" checked><span>✳ <strong>Everything</strong></span></label><label class="category-chip"><input type="radio" name="category" value="hair"><span>✂ <strong>Hair & barbers</strong></span></label><label class="category-chip"><input type="radio" name="category" value="beauty"><span>✿ <strong>Beauty & nails</strong></span></label><label class="category-chip"><input type="radio" name="category" value="spa"><span>☼ <strong>Spa & massage</strong></span></label></div></fieldset>
+        </form>
+        <div class="mode-banner" id="mode-banner" role="status"><span class="mode-symbol">ⓘ</span><span>Checking available listings…</span></div>
+      </section>
+
+      <section class="explore-section" aria-label="Explore results">
+        <div class="section-header"><div><p class="small-eyebrow">EXPLORE YOUR AREA</p><h2 id="results-title">Discover local places</h2><p class="results-sub" id="results-sub">A few good options, carefully organised.</p></div><div class="header-actions"><button class="button-ghost" data-action="share" type="button" title="Copy a link to this search">↗ Share search</button><button class="button-ghost" data-action="brief" type="button">✦ Style brief</button></div></div>
+        <div class="content-layout">
+          <aside class="filter-card" aria-labelledby="filter-heading"><div class="filter-head"><h3 id="filter-heading">Refine results</h3><button type="button" class="text-button" data-action="reset-filters">Reset</button></div><div class="filter-group"><p class="filter-label">WHAT MATTERS TO YOU</p><label class="check-row"><input type="checkbox" id="filter-web"><span>Has a website</span></label><label class="check-row"><input type="checkbox" id="filter-phone"><span>Phone listed</span></label><label class="check-row"><input type="checkbox" id="filter-access"><span>Wheelchair access listed</span></label><label class="check-row"><input type="checkbox" id="filter-saved"><span>Saved by me</span></label></div><div class="filter-divider"></div><div class="filter-group"><p class="filter-label">YOUR VIEW</p><div class="filter-tip"><span aria-hidden="true">✦</span><p>Looking for something specific? Open a salon's details to save private notes, check contact options, or prepare your enquiry.</p></div></div><div class="filter-help"><strong>A note on listings</strong><p>Reviews, prices and live appointment slots aren't verified here. Always confirm details directly with the salon.</p></div></aside>
+          <div class="results-main"><div class="results-toolbar"><div class="results-total"><strong id="result-count">0 salons</strong><span id="result-range">within 5 km</span></div><div class="toolbar-right"><label class="sort-label" for="sort">Sort <select id="sort"><option value="nearest">Nearest first</option><option value="name">Name A–Z</option><option value="contact">Easy to contact</option></select></label><div class="view-switch" role="group" aria-label="Result view"><button id="view-list" class="active" type="button" data-view="list" aria-pressed="true">☷ List</button><button id="view-map" type="button" data-view="map" aria-pressed="false">⌖ Area view</button></div></div></div>
+            <div id="loading" class="loading-state" hidden><div class="spinner" aria-hidden="true"></div><strong>Looking for good matches…</strong><p>Checking the nearby area and organising your options.</p></div>
+            <div id="empty" class="empty-state" hidden><span class="empty-icon" aria-hidden="true">✳</span><h3>No salons match these filters</h3><p>Try widening the radius, changing the service or removing a filter.</p><button class="button-secondary" type="button" data-action="reset-filters">Clear filters</button></div>
+            <div id="error" class="error-state" role="alert" hidden><span aria-hidden="true">⚠</span><h3>We couldn't load these results</h3><p id="error-message"></p><button class="button-secondary" type="button" data-action="retry">Try again</button></div>
+            <div id="results-list" class="salon-list" aria-live="polite" aria-busy="false"></div>
+            <div id="map-panel" class="map-panel" hidden><div class="map-top"><strong>Area view</strong><span>Relative positions only · not a street map</span></div><div class="map-canvas" id="map-canvas" role="region" aria-label="Relative position of nearby salons"></div><div class="map-foot"><span>◎ Search centre</span><a id="map-open" href="https://www.openstreetmap.org" target="_blank" rel="noopener noreferrer">Open street map ↗</a></div></div>
+            <div class="results-bottom"><span id="result-footnote">Distances are estimates, not travel times.</span><button type="button" class="text-button" data-action="top">Back to top ↑</button></div>
+          </div>
+        </div>
+      </section>
+      <section class="feature-band" aria-labelledby="feature-title"><div class="feature-icon">✦</div><div><p class="small-eyebrow">GO IN PREPARED</p><h2 id="feature-title">Know what you want. Ask the right questions.</h2><p>Build a mini brief with your preferred service, budget, timing and requirements. Copy it to send to the salon — nothing gets submitted automatically.</p></div><button class="feature-cta" type="button" data-action="brief">Create my brief <span>↗</span></button></section>
+    </main>
+    <footer class="footer"><div><a class="brand footer-brand" href="/"><span class="brand-mark">✳</span> salon<span class="brand-light">finder.</span></a><p>Find your kind of salon. Made to make choosing easier.</p></div><div class="footer-links"><span>Discovery, not a booking service</span><button type="button" data-action="privacy">Privacy & data</button><a href="https://www.geoapify.com/" target="_blank" rel="noopener noreferrer">Powered by Geoapify</a><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a></div></footer>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <div class="comparison-bar" id="comparison-bar" hidden><div><strong id="comparison-label">0 places selected</strong><span>Compare your shortlist side by side</span></div><div class="comparison-actions"><button type="button" class="button-text-on-dark" data-action="clear-compare">Clear</button><button type="button" class="button-light" data-action="compare">Compare now ↗</button></div></div>
+  <dialog id="details-dialog" class="dialog details-dialog" aria-labelledby="details-title"><div id="details-content"></div></dialog>
+  <dialog id="compare-dialog" class="dialog compare-dialog" aria-labelledby="compare-title"><div class="dialog-heading"><div><p class="small-eyebrow">YOUR SHORTLIST</p><h2 id="compare-title">Side-by-side comparison</h2></div><button class="icon-button" data-action="close-dialog" aria-label="Close comparison">✕</button></div><div id="compare-content"></div></dialog>
+  <dialog id="brief-dialog" class="dialog brief-dialog" aria-labelledby="brief-title"><div class="dialog-heading"><div><p class="small-eyebrow">YOUR PERSONAL ENQUIRY</p><h2 id="brief-title">Create a style brief</h2><p>Get all the important details into one clear message.</p></div><button class="icon-button" data-action="close-dialog" aria-label="Close style brief">✕</button></div><form id="brief-form"><div class="brief-grid"><label>Service you're interested in<select id="brief-service"><option>Cut & styling</option><option>Colour / highlights</option><option>Barbering</option><option>Nails / manicure</option><option>Beauty treatment</option><option>Spa / massage</option><option>Something else</option></select></label><label>Preferred date<input id="brief-date" type="date"></label><label>Budget (optional)<input id="brief-budget" maxlength="40" placeholder="e.g. around £75"></label><label>Preferred time<select id="brief-time"><option>Flexible</option><option>Morning</option><option>Afternoon</option><option>Evening</option></select></label></div><label>What would you like? <textarea id="brief-details" maxlength="700" rows="3" placeholder="e.g. a low-maintenance cut, help deciding on colour, your hair type…"></textarea></label><label>Any requirements or questions? <textarea id="brief-requirements" maxlength="500" rows="3" placeholder="e.g. step-free access, patch testing, sensitivities, cancellation policy…"></textarea></label><p class="form-caption">Your draft stays in this browser; clicking Copy does not send a message or book anything.</p><div class="dialog-actions"><button type="button" class="button-secondary" data-action="close-dialog">Cancel</button><button type="submit" class="button-primary">Copy my enquiry <span>↗</span></button></div></form></dialog>
+  <dialog id="privacy-dialog" class="dialog small-dialog" aria-labelledby="privacy-title"><div class="dialog-heading"><h2 id="privacy-title">Your privacy</h2><button class="icon-button" data-action="close-dialog" aria-label="Close privacy information">✕</button></div><p>Favourites, personal notes and your preferred distance unit are stored only in this browser's local storage. Your location is requested only when you press “Near me”. Search terms and coordinates are sent to this app's server, then to Geoapify in live mode to find nearby places. This demo has no accounts, analytics, adverts or appointment system.</p><p>Use “Clear my saved data” below to delete browser-stored favourites and notes. Web hosting and Geoapify may process standard server requests under their own policies.</p><div class="dialog-actions"><button class="button-secondary" type="button" data-action="clear-storage">Clear my saved data</button><button class="button-primary" type="button" data-action="close-dialog">Close</button></div></dialog>
+</body>
+</html>

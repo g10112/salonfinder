@@ -1,0 +1,12 @@
+{
+  "name": "Salon Finder — Find your kind of salon",
+  "short_name": "Salon Finder",
+  "description": "Find, compare and save salons near you.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f4f0",
+  "theme_color": "#f6f4f0",
+  "icons": [{"src":"/assets/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
