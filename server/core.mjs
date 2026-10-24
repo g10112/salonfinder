@@ -148,7 +148,8 @@ export async function searchLive(input, key, fetcher = fetch) {
   let center = input.coords;
   if (!center) {
     const geo = await requestJson(geoUrl('/v1/geocode/search', {text: input.location, format:'json', limit: 1, lang:'en'}, key), fetcher);
-    const found = geo?.results?.[0];
+    if (!Array.isArray(geo.results)) throw providerResponseError();
+    const found = geo.results[0];
     const lat = providerCoordinate(found?.lat, -90, 90);
     const lon = providerCoordinate(found?.lon, -180, 180);
     if (lat === null || lon === null) {
@@ -165,8 +166,10 @@ export async function searchLive(input, key, fetcher = fetch) {
     lang: 'en'
   }, key);
   const response = await requestJson(url, fetcher);
+  // An upstream error object with HTTP 200 must not masquerade as zero salons.
+  if (!Array.isArray(response.features)) throw providerResponseError();
   const seen = new Set();
-  const salons = (Array.isArray(response.features) ? response.features : [])
+  const salons = response.features
     .map(x => normalisePlace(x, center)).filter(Boolean)
     .filter(x => x.distanceKm <= input.radius + .02)
     .filter(x => input.category === 'all' || x.category === input.category)
