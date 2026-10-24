@@ -110,12 +110,12 @@ async function requestJson(url, fetcher) {
     throw new ApiError(503, 'PROVIDER_ERROR', 'The location service could not complete the search.');
   }
   const advertised = response.headers?.get?.('content-length');
-  if (advertised != null && (!/^\\d+$/.test(advertised.trim()) || Number(advertised) > MAX_PROVIDER_BYTES)) {
+  if (advertised != null && (!/^\d+$/.test(advertised.trim()) || Number(advertised) > MAX_PROVIDER_BYTES)) {
     cancelBody(response.body);
     throw providerResponseError();
   }
   const type = response.headers?.get?.('content-type');
-  if (type && !/^\\s*application\\/(?:json|[\\w.-]+\\+json)(?:\\s*;|$)/i.test(type)) {
+  if (type && !/^\s*application\/(?:json|[\w.-]+\+json)(?:\s*;|$)/i.test(type)) {
     cancelBody(response.body);
     throw providerResponseError();
   }
