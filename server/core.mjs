@@ -35,6 +35,13 @@ export function distanceKm(a, b) {
   return 6371.0088 * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(Math.max(0, 1-x)));
 }
 function text(value, cap = 180) { return typeof value === 'string' ? value.trim().slice(0, cap) : ''; }
+// Provider coordinates may be numbers or numeric strings, but never null, booleans,
+// empty strings or out-of-range values (Number(null) would otherwise become 0).
+function providerCoordinate(value, min, max) {
+  if (typeof value !== 'number' && (typeof value !== 'string' || !value.trim())) return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= min && number <= max ? number : null;
+}
 function safeLink(value) {
   if (typeof value !== 'string') return null;
   try { const url = new URL(value.startsWith('www.') ? `https://${value}` : value); return ['http:','https:'].includes(url.protocol) ? url.href : null; }
@@ -51,8 +58,9 @@ function classify(categories) {
 export function normalisePlace(feature, center) {
   const p = feature?.properties || {};
   const coord = feature?.geometry?.coordinates;
-  const lat = Number(p.lat ?? coord?.[1]), lon = Number(p.lon ?? coord?.[0]);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  const lat = providerCoordinate(p.lat ?? coord?.[1], -90, 90);
+  const lon = providerCoordinate(p.lon ?? coord?.[0], -180, 180);
+  if (lat === null || lon === null) return null;
   const categories = Array.isArray(p.categories) ? p.categories.filter(x => typeof x === 'string') : [];
   if (!categories.some(x => x.startsWith('service.beauty'))) return null;
   if (categories.some(x => x.startsWith('service.beauty.tattoo') || x.startsWith('service.beauty.tanning_salon')) && !categories.some(x => ['service.beauty.hairdresser','service.beauty.spa','service.beauty.massage'].includes(x))) return null;
@@ -77,32 +85,76 @@ export function geoUrl(path, params, key) {
   url.searchParams.set('apiKey', key);
   return url;
 }
+// Bound *decompressed bytes read*, not just Content-Length (which can be absent,
+// false or refer to a compressed transfer). Never buffer an unbounded provider body.
+const MAX_PROVIDER_BYTES = 1_500_000;
+const providerResponseError = () => new ApiError(503, 'PROVIDER_ERROR', 'Unexpected response from the location service.');
+function cancelBody(body) {
+  try { Promise.resolve(body?.cancel?.()).catch(() => {}); } catch {}
+}
 async function requestJson(url, fetcher) {
   let response;
-  try { response = await fetcher(url, {signal: AbortSignal.timeout(8500), headers: {'Accept':'application/json'}}); }
-  catch { throw new ApiError(503, 'PROVIDER_UNAVAILABLE', 'The location service is unavailable. Please try again.'); }
-  if (!response.ok) {
-    if (response.status === 429) throw new ApiError(503, 'PROVIDER_BUSY', 'Our location provider is busy. Try again shortly.');
+  try {
+    // A redirect could disclose the API key embedded in the Geoapify URL.
+    response = await fetcher(url, {
+      signal: AbortSignal.timeout(8500),
+      redirect: 'error',
+      headers: {'Accept': 'application/json'}
+    });
+  } catch {
+    throw new ApiError(503, 'PROVIDER_UNAVAILABLE', 'The location service is unavailable. Please try again.');
+  }
+  if (!response?.ok) {
+    cancelBody(response?.body);
+    if (response?.status === 429) throw new ApiError(503, 'PROVIDER_BUSY', 'Our location provider is busy. Try again shortly.');
     throw new ApiError(503, 'PROVIDER_ERROR', 'The location service could not complete the search.');
   }
-  if (Number(response.headers.get('content-length')) > 1_500_000) throw new ApiError(503, 'PROVIDER_ERROR', 'Unexpected response from the location service.');
-  let obj;
+  const advertised = response.headers?.get?.('content-length');
+  if (advertised != null && (!/^\\d+$/.test(advertised.trim()) || Number(advertised) > MAX_PROVIDER_BYTES)) {
+    cancelBody(response.body);
+    throw providerResponseError();
+  }
+  const type = response.headers?.get?.('content-type');
+  if (type && !/^\\s*application\\/(?:json|[\\w.-]+\\+json)(?:\\s*;|$)/i.test(type)) {
+    cancelBody(response.body);
+    throw providerResponseError();
+  }
+  const reader = response.body?.getReader?.();
+  if (!reader) throw providerResponseError();
+  let total = 0;
+  let finished = false;
+  const chunks = [];
   try {
-    const body = await response.text();
-    if (body.length > 1_500_000) throw new Error('Response too large');
-    obj = JSON.parse(body);
-  } catch { throw new ApiError(503, 'PROVIDER_ERROR', 'Unexpected response from the location service.'); }
-  return obj;
+    for (;;) {
+      const {done, value} = await reader.read();
+      if (done) { finished = true; break; }
+      if (!(value instanceof Uint8Array) || total + value.byteLength > MAX_PROVIDER_BYTES) throw new Error('Provider body exceeds limit');
+      total += value.byteLength;
+      chunks.push(value);
+    }
+    const payload = JSON.parse(new TextDecoder('utf-8', {fatal: true}).decode(Buffer.concat(chunks, total)));
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('Invalid provider JSON shape');
+    return payload;
+  } catch {
+    throw providerResponseError();
+  } finally {
+    if (!finished) {
+      try { Promise.resolve(reader.cancel()).catch(() => {}); } catch {}
+    }
+    reader.releaseLock();
+  }
 }
 export async function searchLive(input, key, fetcher = fetch) {
   let center = input.coords;
   if (!center) {
     const geo = await requestJson(geoUrl('/v1/geocode/search', {text: input.location, format:'json', limit: 1, lang:'en'}, key), fetcher);
     const found = geo?.results?.[0];
-    if (!found || !Number.isFinite(Number(found.lat)) || !Number.isFinite(Number(found.lon))) {
+    const lat = providerCoordinate(found?.lat, -90, 90);
+    const lon = providerCoordinate(found?.lon, -180, 180);
+    if (lat === null || lon === null) {
       throw new ApiError(404, 'LOCATION_NOT_FOUND', 'We could not find that location. Try a town and country or a postcode.');
     }
-    center = {lat: Number(found.lat), lon: Number(found.lon), label: text(found.formatted, 150) || input.location};
+    center = {lat, lon, label: text(found.formatted, 150) || input.location};
   }
   const lonlat = `${center.lon},${center.lat}`;
   const url = geoUrl('/v2/places', {
