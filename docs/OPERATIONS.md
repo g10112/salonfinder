@@ -27,7 +27,7 @@ Passing source tests does not substitute for these production release steps.
 
 ## Provider-response hardening (October 2026)
 
-Live Geoapify calls now refuse HTTP redirects (the server-side API key is in the request URL), require a streamable JSON response, and cap the **decoded response body** at 1,500,000 bytes while reading. This protects against absent/incorrect `Content-Length`, unexpectedly large chunked replies, malformed UTF-8 and JSON, and wrong content types. Unexpected responses return the existing generic `PROVIDER_ERROR` without exposing the key or raw provider payload. Geocoding coordinates are range-checked and null/blank/boolean coordinates are not silently interpreted as 0°.
+Live Geoapify calls now refuse HTTP redirects (the server-side API key is in the request URL), require a streamable JSON response, and cap the **decoded response body** at 1,500,000 bytes while reading. This protects against absent/incorrect `Content-Length`, unexpectedly large chunked replies, malformed UTF-8 and JSON, and wrong content types. Unexpected responses, including HTTP 200 JSON error objects without the expected `results`/`features` arrays, return the existing generic `PROVIDER_ERROR` without exposing the key or raw provider payload; a valid empty `results` array still means location not found, and an empty `features` array still means zero listings. Geocoding coordinates are range-checked and null/blank/boolean coordinates are not silently interpreted as 0°.
 
 A failed cache load is removed only if it is still the active entry for its key; an expired request failing late can no longer evict a newer successful replacement. The cache remains an in-memory, single-process 5-minute/120-entry cache, not a distributed production control.
 
