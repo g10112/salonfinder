@@ -13,15 +13,21 @@ const send = (res, status, body, type='application/json; charset=utf-8', extra={
 const json = (res,status,data,extra={}) => send(res,status,JSON.stringify(data),'application/json; charset=utf-8',extra);
 
 /** Cache bounded by 120 entries and TTL; not designed as a multi-node shared cache. */
-function makeCache(ttlMs=5*60_000) {
+export function makeCache(ttlMs=5*60_000, now=Date.now) {
   const entries = new Map();
   return async (key, fn) => {
-    const v = entries.get(key);
-    if (v && v.expires > Date.now()) return v.promise;
-    const promise = Promise.resolve().then(fn);
-    entries.set(key,{expires:Date.now()+ttlMs,promise});
-    if(entries.size>120)entries.delete(entries.keys().next().value);
-    try{return await promise;}catch(e){entries.delete(key);throw e;}
+    const time = now();
+    const cached = entries.get(key);
+    if (cached && cached.expires > time) return cached.promise;
+    const entry = {expires: time + ttlMs, promise: Promise.resolve().then(fn)};
+    entries.set(key, entry);
+    if (entries.size > 120) entries.delete(entries.keys().next().value);
+    try { return await entry.promise; }
+    catch (error) {
+      // A timed-out older request must not evict its successful replacement.
+      if (entries.get(key) === entry) entries.delete(key);
+      throw error;
+    }
   };
 }
 function makeLimiter() {
