@@ -46,3 +46,37 @@ test('expired failing cache request cannot evict a newer successful replacement'
   assert.equal(await cache('search', () => { reloads++; return 'incorrect reload'; }), 'fresh');
   assert.equal(reloads, 0);
 });
+
+test('live HTTP search fails safely on malformed provider data then retries and caches success', async () => {
+  let providerCalls = 0;
+  const app = createAppServer({
+    apiKey: 'server-only-test-key',
+    fetcher: async (_url, options) => {
+      providerCalls++;
+      assert.equal(options.redirect, 'error');
+      if (providerCalls === 1) return new Response('<html>bad gateway</html>', {headers: {'content-type': 'text/html'}});
+      return Response.json({features: [
+        {properties: {name: 'Real fixture salon', place_id: 'fixture-1', lat: 51.501, lon: -0.12, categories: ['service.beauty.hairdresser']}}
+      ]});
+    }
+  });
+  await new Promise(resolve => app.listen(0, '127.0.0.1', resolve));
+  try {
+    const url = `http://127.0.0.1:${app.address().port}/api/search?lat=51.5&lon=-0.12&category=hair&radius=5`;
+    const failed = await fetch(url);
+    assert.equal(failed.status, 503);
+    const body = await failed.text();
+    assert.match(body, /PROVIDER_ERROR/);
+    assert.ok(!body.includes('server-only-test-key'));
+    const retried = await fetch(url);
+    assert.equal(retried.status, 200);
+    const data = await retried.json();
+    assert.equal(data.mode, 'live');
+    assert.equal(data.salons.length, 1);
+    assert.equal(data.salons[0].name, 'Real fixture salon');
+    assert.equal((await fetch(url)).status, 200);
+    assert.equal(providerCalls, 2, 'success should be cached; failure must not be cached');
+  } finally {
+    await new Promise(resolve => app.close(resolve));
+  }
+});
