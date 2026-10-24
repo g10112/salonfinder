@@ -29,10 +29,91 @@ test('live adapter performs geocoding then place lookup with deduplication and r
     {properties:{name:'Good Hair',place_id:'one',lat:51.501,lon:-.121,categories:['service.beauty.hairdresser'],website:'https://example.com'}},
     {properties:{name:'Good Hair',place_id:'one',lat:51.501,lon:-.121,categories:['service.beauty.hairdresser']}},
     {properties:{name:'Too Far',place_id:'two',lat:52.9,lon:-.12,categories:['service.beauty.hairdresser']}}
-  ]};return {ok:true,headers:new Headers(),text:async()=>JSON.stringify(payload)};};
+  ]};return Response.json(payload);};
   const x=await searchLive(validateSearch(params(VALID)),'test',fetcher);
   assert.equal(x.salons.length,1);assert.equal(x.salons[0].website,'https://example.com/');assert.equal(calls.length,2);assert.ok(calls[1].includes('circle%3A'));
 });
 test('provider outage returns sanitized service failure without leaking key',async()=>{
   await assert.rejects(()=>searchLive(validateSearch(params(VALID)),'supersecret',async()=>{throw Error('supersecret leaked');}),err=>err.status===503 && !err.message.includes('supersecret'));
+});
+const COORDINATE_SEARCH = validateSearch(params({category:'hair', radius:'5', lat:'51.5', lon:'-0.12'}));
+const searchWithResponse = response => searchLive(COORDINATE_SEARCH, 'secret-provider-key', async () => response);
+const providerFailure = error => error instanceof ApiError && error.status === 503 && error.code === 'PROVIDER_ERROR' && !error.message.includes('secret-provider-key');
+
+test('live requests reject redirects and carry a bounded abort signal', async () => {
+  const calls = [];
+  const result = await searchLive(COORDINATE_SEARCH, 'test-key', async (url, options) => {
+    calls.push({url, options});
+    return Response.json({features: []});
+  });
+  assert.equal(result.salons.length, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url.hostname, 'api.geoapify.com');
+  assert.equal(calls[0].options.redirect, 'error');
+  assert.equal(calls[0].options.signal instanceof AbortSignal, true);
+  assert.equal(calls[0].options.headers.Accept, 'application/json');
+});
+
+test('streaming provider response is rejected above 1.5 MB without Content-Length', async () => {
+  let cancelled = false;
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new Uint8Array(900_000));
+      controller.enqueue(new Uint8Array(700_000));
+    },
+    cancel() { cancelled = true; }
+  });
+  const response = new Response(stream, {headers: {'content-type': 'application/json'}});
+  await assert.rejects(() => searchWithResponse(response), providerFailure);
+  assert.equal(cancelled, true);
+});
+
+test('streaming limit is enforced even when Content-Length lies', async () => {
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new Uint8Array(1_500_001));
+    }
+  });
+  const response = new Response(stream, {headers: {'content-length': '1', 'content-type': 'application/json'}});
+  await assert.rejects(() => searchWithResponse(response), providerFailure);
+});
+
+test('oversized advertised response is rejected before reading its body', async () => {
+  let cancelled = false;
+  const stream = new ReadableStream({cancel() { cancelled = true; }});
+  const response = new Response(stream, {headers: {'content-length': '1500001', 'content-type': 'application/json'}});
+  await assert.rejects(() => searchWithResponse(response), providerFailure);
+  assert.equal(cancelled, true);
+});
+
+test('unexpected MIME, malformed JSON, invalid UTF-8 and primitive JSON fail closed', async () => {
+  const responses = [
+    new Response('{"features":[]}', {headers: {'content-type': 'text/html'}}),
+    new Response('{invalid', {headers: {'content-type': 'application/json'}}),
+    new Response(new Uint8Array([0xff, 0xfe]), {headers: {'content-type': 'application/json'}}),
+    Response.json(null),
+    Response.json([1, 2, 3])
+  ];
+  for (const response of responses) await assert.rejects(() => searchWithResponse(response), providerFailure);
+});
+
+test('provider geocoding rejects null, blank, boolean and out-of-range coordinates', async () => {
+  for (const lat of [null, '', false, 91, -91]) {
+    let calls = 0;
+    await assert.rejects(
+      () => searchLive(validateSearch(params(VALID)), 'key', async () => {
+        calls++;
+        return Response.json({results: [{lat, lon: -0.12, formatted: 'Wrong place'}]});
+      }),
+      error => error instanceof ApiError && error.code === 'LOCATION_NOT_FOUND'
+    );
+    assert.equal(calls, 1, 'invalid geocode must not trigger places lookup');
+  }
+});
+
+test('place normalisation refuses null, blank, boolean and out-of-range coordinates', () => {
+  const center = {lat: 51.5, lon: -0.12};
+  const place = lat => ({properties: {name: 'Bad position', place_id: 'id', categories: ['service.beauty.hairdresser'], lat, lon: -0.12}});
+  for (const lat of [null, '', false, 91, -91]) assert.equal(normalisePlace(place(lat), center), null);
+  assert.equal(normalisePlace(place('51.5'), center).lat, 51.5);
 });
