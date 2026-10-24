@@ -117,3 +117,18 @@ test('place normalisation refuses null, blank, boolean and out-of-range coordina
   for (const lat of [null, '', false, 91, -91]) assert.equal(normalisePlace(place(lat), center), null);
   assert.equal(normalisePlace(place('51.5'), center).lat, 51.5);
 });
+
+test('HTTP 200 provider error envelopes never appear as valid empty results', async () => {
+  await assert.rejects(() => searchWithResponse(Response.json({error: 'quota exhausted'})), providerFailure);
+  await assert.rejects(
+    () => searchLive(validateSearch(params(VALID)), 'key', async () => Response.json({message: 'geocoder unavailable'})),
+    providerFailure
+  );
+  const empty = await searchWithResponse(Response.json({features: []}));
+  assert.equal(empty.mode, 'live');
+  assert.deepEqual(empty.salons, []);
+  await assert.rejects(
+    () => searchLive(validateSearch(params(VALID)), 'key', async () => Response.json({results: []})),
+    error => error instanceof ApiError && error.code === 'LOCATION_NOT_FOUND'
+  );
+});
