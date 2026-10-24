@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createAppServer} from '../server/index.mjs';
+import {createAppServer, makeCache} from '../server/index.mjs';
 async function serve(fn) {const app=createAppServer({apiKey:''});await new Promise(r=>app.listen(0,'127.0.0.1',r));try{return await fn(`http://127.0.0.1:${app.address().port}`);}finally{await new Promise(r=>app.close(r));}}
 test('health, config, demo search, CSP and file serving',()=>serve(async url=>{
   const h=await fetch(url+'/healthz');assert.equal(h.status,200);
@@ -19,3 +19,30 @@ test('rate limiter protects provider requests',()=>serve(async url=>{
   let response;for(let i=0;i<61;i++)response=await fetch(url+'/api/search?location=London');
   assert.equal(response.status,429);assert.equal(response.headers.get('retry-after'),'60');
 }));
+test('cache coalesces concurrent requests and retries after a failed load', async () => {
+  const cache = makeCache(60_000);
+  let calls = 0;
+  const load = () => { calls++; return Promise.resolve({ok: true}); };
+  const [a, b] = await Promise.all([cache('same', load), cache('same', load)]);
+  assert.equal(calls, 1);
+  assert.equal(a, b);
+  await assert.rejects(() => cache('failed', () => Promise.reject(new Error('offline'))), /offline/);
+  assert.deepEqual(await cache('failed', load), {ok: true});
+  assert.equal(calls, 2);
+});
+
+test('expired failing cache request cannot evict a newer successful replacement', async () => {
+  let now = 0;
+  const cache = makeCache(50, () => now);
+  let rejectOld;
+  const old = cache('search', () => new Promise((_, reject) => { rejectOld = reject; }));
+  await Promise.resolve(); // ensure the original loader has started
+  now = 51;
+  const fresh = cache('search', () => Promise.resolve('fresh'));
+  assert.equal(await fresh, 'fresh');
+  rejectOld(new Error('stale request failed'));
+  await assert.rejects(old, /stale request failed/);
+  let reloads = 0;
+  assert.equal(await cache('search', () => { reloads++; return 'incorrect reload'; }), 'fresh');
+  assert.equal(reloads, 0);
+});
