@@ -25,6 +25,16 @@ Recommended initial production topology: one container replica behind TLS-termin
 
 Passing source tests does not substitute for these production release steps.
 
+## Provider-response hardening (October 2026)
+
+Live Geoapify calls now refuse HTTP redirects (the server-side API key is in the request URL), require a streamable JSON response, and cap the **decoded response body** at 1,500,000 bytes while reading. This protects against absent/incorrect `Content-Length`, unexpectedly large chunked replies, malformed UTF-8 and JSON, and wrong content types. Unexpected responses return the existing generic `PROVIDER_ERROR` without exposing the key or raw provider payload. Geocoding coordinates are range-checked and null/blank/boolean coordinates are not silently interpreted as 0°.
+
+A failed cache load is removed only if it is still the active entry for its key; an expired request failing late can no longer evict a newer successful replacement. The cache remains an in-memory, single-process 5-minute/120-entry cache, not a distributed production control.
+
+**Compatibility:** Mocked provider integrations must return a Fetch-standard `Response` with a readable `body` stream, rather than an object implementing only `text()`. This matches Node 22 `fetch`. Valid Geoapify JSON payloads smaller than the cap retain the same API shape. Larger legitimate payloads now fail closed with HTTP 503 instead of consuming unbounded process memory; narrow search radius or investigate provider payload size rather than silently raising the cap.
+
+**Acceptance and rollback:** Run `npm run check` on Node 22, then exercise live geocoding and Places calls with a dedicated, quota-limited test key in a non-production environment. Test normal results, provider 429, malformed/oversized bodies and proxy redirect behavior. No live provider account was used to develop these changes. Revert the PR commit(s) and redeploy the previously verified image if necessary; there are no database or state migrations. Reverting also restores the previous weaker provider-body boundary, so prefer a forward fix.
+
 ## Known reliability boundaries
 
 **Geocoding:** A name can resolve to an unexpected same-named town; users should add region/country/postcode. Geoapify service status and quotas are outside this app's control.
