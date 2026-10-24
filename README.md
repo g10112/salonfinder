@@ -68,7 +68,7 @@ Node 22 HTTP server (no runtime dependencies)
                            └ OSM-derived salon data
 ```
 
-Backend safeguards: allowlisted static paths and upstream origins, input/radius/coordinate validation, strict CSP and security headers, HTTPS-only provider access, 8.5-second upstream timeout, response-size bound, per-process 60 requests per minute/IP, and a 5-minute/120-entry in-memory response cache. Every returned listing is normalised with HTML-escaped rendering and sanitised website/telephone links. API errors avoid leaking keys or raw provider messages.
+Backend safeguards: allowlisted static paths and upstream origins, input/radius/coordinate validation, strict CSP and security headers, HTTPS-only provider access, redirect rejection to protect the provider key, 8.5-second upstream timeout, a 1.5 MB streaming cap on decoded provider responses (including chunked or misleading Content-Length), per-process 60 requests per minute/IP, and a 5-minute/120-entry in-memory response cache. Every returned listing is normalised with HTML-escaped rendering and sanitised website/telephone links. API errors avoid leaking keys or raw provider messages.
 
 ### Search taxonomy
 
@@ -86,7 +86,7 @@ Geoapify docs: [Places](https://apidocs.geoapify.com/docs/places/) and [Geocodin
 ## Testing
 
 ```bash
-npm test          # Node built-in test runner, 13 API/normalisation/security tests
+npm test          # Node built-in test runner, API/normalisation/security/cache regression tests
 npm run check     # Syntax checks + test suite
 ```
 
